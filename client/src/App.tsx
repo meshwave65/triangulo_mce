@@ -328,7 +328,7 @@ function App( ) {
             </div>
 
             <a 
-              href={`https://wa.me/5511999999999?text=${whatsappMessage}`}
+              href={`https://wa.me/351914845439?text=${whatsappMessage}`}
               target="_blank"
               rel="noopener noreferrer"
               className="block w-full text-center bg-emerald-600 hover:bg-emerald-700 text-white py-6 rounded-2xl text-xl font-bold transition-all shadow-xl"
