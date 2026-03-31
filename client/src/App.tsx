@@ -1,9 +1,15 @@
-import { useState, useEffect } from 'react'
+import { useState } from 'react'
 import { motion } from 'framer-motion'
 import { supabase } from './lib/supabase'
 
-const HERO_BG = 'https://d2xsxph8kpxj0f.cloudfront.net/310419663029287297/oB8kVe32CcVmCbr6pyHqsc/inovarse-hero-background.webp'
-const RESULT_BG = 'https://d2xsxph8kpxj0f.cloudfront.net/310419663029287297/oB8kVe32CcVmCbr6pyHqsc/inovarse-result-background.webp'
+const HERO_BG = 'https://d2xsxph8kpxj0f.cloudfront.net/310419663029287297/oB8kVE32CcVmCbr6pyHqsc/inovarse-hero-background.webp'
+const RESULT_BG = 'https://d2xsxph8kpxj0f.cloudfront.net/310419663029287297/oB8kVE32CcVmCbr6pyHqsc/inovarse-result-background.webp'
+
+interface LeadData {
+  nome: string
+  telefone: string
+  email: string
+}
 
 interface ResultData {
   altM: string
@@ -15,86 +21,170 @@ interface ResultData {
   idealM: number
   idealC: number
   idealE: number
-  pairedCM: { mente: number, corpo: number }
-  pairedCE: { corpo: number, espirito: number }
-  pairedME: { mente: number, espirito: number }
+  pairedCM: { mente: number; corpo: number }
+  pairedCE: { corpo: number; espirito: number }
+  pairedME: { mente: number; espirito: number }
 }
 
-function App( ) {
+// ====================================================================================
+// LÓGICA DE PLOTAGEM ISÓSCELES INTEGRADA DIRETAMENTE NO App.tsx
+// ====================================================================================
+
+/**
+ * Representação de pontos no espaço SVG
+ */
+interface Point {
+  x: number;
+  y: number;
+}
+
+/**
+ * Função de Plotagem para Sub-triângulos Isósceles:
+ * vBase1 e vBase2 formam a base externa (lado do TH).
+ * vTip é o centro do TH (vértice comum aos 3 sub-triângulos).
+ * 
+ * @param value - Valor principal (0-10) que define a 'altura' do ponto da base para o vTip.
+ * @param balanceA - Peso (0-10) para o lado do vBase1 (influência da área 'A').
+ * @param balanceB - Peso (0-10) para o lado do vBase2 (influência da área 'B').
+ * @param vBase1 - Primeiro vértice da base externa do sub-triângulo.
+ * @param vBase2 - Segundo vértice da base externa do sub-triângulo.
+ * @param vTip - Vértice oposto à base externa (o centro do TH).
+ * @returns As coordenadas (x, y) do ponto plotado.
+ */
+const calculateIsoscelesPoint = (
+  value: number,      
+  balanceA: number,   
+  balanceB: number,   
+  vBase1: Point,
+  vBase2: Point,
+  vTip: Point
+): Point => {
+  // Normalização da altura (t vai de 0 na base até 1 no centro)
+  const t = value / 10; 
+  
+  // 1. Ponto Médio da Base Externa
+  const midBase: Point = {
+    x: (vBase1.x + vBase2.x) / 2,
+    y: (vBase1.y + vBase2.y) / 2
+  };
+
+  // 2. Ponto na Linha de Altura (Interpolação Linear)
+  // Este ponto 'sobe' da base externa em direção ao centro do TH.
+  const pHeight: Point = {
+    x: midBase.x + t * (vTip.x - midBase.x),
+    y: midBase.y + t * (vTip.y - midBase.y)
+  };
+
+  // 3. Cálculo da Largura Disponível na altura 't'
+  // Como o triângulo é isósceles e fecha no Center, a largura da base 
+  // diminui linearmente: Largura(t) = LarguraBase * (1 - t)
+  const widthVector = {
+    x: (vBase2.x - vBase1.x) * (1 - t),
+    y: (vBase2.y - vBase1.y) * (1 - t)
+  };
+
+  // 4. Deslocamento Lateral (Balanço entre as outras duas áreas)
+  // balanceFactor varia de -1 (totalmente para vBase1) a 1 (totalmente para vBase2)
+  // Se balanceA = 7 e balanceB = 3, o balanceFactor será (3-7)/10 = -0.4, puxando para vBase1.
+  const balanceFactor = (balanceB - balanceA) / 10; 
+
+  // O ponto final é o pHeight deslocado lateralmente ao longo do vetor de largura
+  return {
+    x: pHeight.x + (balanceFactor * widthVector.x) / 2,
+    y: pHeight.y + (balanceFactor * widthVector.y) / 2
+  };
+};
+
+// ====================================================================================
+
+function App() {
+  const [lead, setLead] = useState<LeadData>({ nome: '', telefone: '', email: '' })
+  const [showIntro, setShowIntro] = useState(true)
+  const [showSliders, setShowSliders] = useState(false)
+
   const [mente, setMente] = useState(4)
   const [corpo, setCorpo] = useState(3)
-  const [restante, setRestante] = useState(Math.max(0, 10 - mente))
-  const [espirito, setEspirito] = useState(Math.max(0, restante - corpo))
+  const restante = Math.max(0, 10 - mente)
+  const espirito = Math.max(0, restante - corpo)
 
   const [pairedCM, setPairedCM] = useState({ mente: 5, corpo: 5 })
   const [pairedCE, setPairedCE] = useState({ corpo: 5, espirito: 5 })
   const [pairedME, setPairedME] = useState({ mente: 5, espirito: 5 })
 
   const [result, setResult] = useState<ResultData | null>(null)
-  const [status, setStatus] = useState('')
   const [loading, setLoading] = useState(false)
-  const [showIntro, setShowIntro] = useState(true)
 
-  useEffect(() => {
-    const newRestante = Math.max(0, 10 - mente)
-    setRestante(newRestante)
-    setEspirito(Math.max(0, newRestante - corpo))
-  }, [mente, corpo])
+  const irParaSliders = () => {
+    setShowIntro(false)
+    setShowSliders(true)
+  }
 
   const calcular = async () => {
     setLoading(true)
-    setStatus('Gerando seu Triângulo MCE...')
-
     const altM = ((mente + pairedCM.mente * 0.5 + pairedME.mente * 0.5) / 2).toFixed(1)
     const altC = ((corpo + pairedCM.corpo * 0.5 + pairedCE.corpo * 0.5) / 2).toFixed(1)
     const altE = ((espirito + pairedCE.espirito * 0.5 + pairedME.espirito * 0.5) / 2).toFixed(1)
-
     const deslocM = ((pairedCM.mente - pairedCM.corpo) + (pairedME.mente - pairedME.espirito)) / 2
     const deslocC = ((pairedCM.corpo - pairedCM.mente) + (pairedCE.corpo - pairedCE.espirito)) / 2
     const deslocE = ((pairedCE.espirito - pairedCE.corpo) + (pairedME.espirito - pairedME.mente)) / 2
 
     const res: ResultData = {
-      altM,
-      altC,
-      altE,
+      altM, altC, altE,
       deslocM: deslocM.toFixed(1),
       deslocC: deslocC.toFixed(1),
       deslocE: deslocE.toFixed(1),
       idealM: mente,
       idealC: corpo,
       idealE: espirito,
-      pairedCM,
-      pairedCE,
-      pairedME
+      pairedCM, pairedCE, pairedME
     }
 
     try {
-      await supabase
-        .from('results')
-        .insert({
-          mental: parseFloat(altM),
-          corpo: parseFloat(altC),
-          espirito: parseFloat(altE),
-          ideal_mental: mente,
-          ideal_corpo: corpo,
-          ideal_espirito: espirito
-        })
+      // CORREÇÃO: Definindo leadToSave antes do uso
+      const leadToSave = {
+        nome: lead.nome.trim() || 'Visitante',
+        telefone: lead.telefone.trim() || '00000000000',
+        email: lead.email.trim() || 'no@email.com'
+      }
+
+      const { data: savedLead, error: leadError } = await supabase.from('leads').insert(leadToSave).select('id').single()
       
+      if (leadError) {
+        console.error('Erro ao salvar lead:', leadError.message)
+      }
+
+      const leadId = savedLead?.id || null
+
+      const { error: resultError } = await supabase.from('results').insert({
+        mental: parseFloat(altM),
+        corpo: parseFloat(altC),
+        espirito: parseFloat(altE),
+        ideal_mental: mente,
+        ideal_corpo: corpo,
+        ideal_espirito: espirito,
+        lead_id: leadId,
+        created_at: new Date().toISOString()
+      })
+
+      if (resultError) {
+        console.error('Erro ao salvar resultado:', resultError.message)
+      }
+
+    } catch (err) {
+      console.error('Erro inesperado:', err)
+    } finally {
       setResult(res)
       localStorage.setItem('trianguloMCE_result', JSON.stringify(res))
-    } catch (err: any) {
-      console.warn('Nota: Resultado não pôde ser salvo no banco de dados, mas será exibido localmente.', err)
-      setResult(res)
-    } finally {
       setLoading(false)
     }
   }
 
   const reset = () => {
     setResult(null)
-    setStatus('')
-    localStorage.removeItem('trianguloMCE_result')
+    setLead({ nome: '', telefone: '', email: '' })
     setShowIntro(true)
+    setShowSliders(false)
+    localStorage.removeItem('trianguloMCE_result')
   }
 
   const getInterpretation = (res: ResultData) => {
@@ -102,179 +192,144 @@ function App( ) {
     const diffC = Math.abs(Number(res.altC) - res.idealC)
     const diffE = Math.abs(Number(res.altE) - res.idealE)
     const maior = Math.max(diffM, diffC, diffE)
-
-    if (maior <= 1.5) return "Seu Triângulo MCE revela um excelente equilíbrio entre Mente, Corpo e Espírito. Você já possui uma base sólida para sua jornada."
-    if (diffC === maior) return "Sua maior lacuna está no **Corpo**. Isso é extremamente comum e indica que, apesar de cuidar da mente e espírito, sua base física precisa de mais atenção."
-    if (diffM === maior) return "Sua maior lacuna está na **Mente**. Mesmo que você se cuide fisicamente, a sobrecarga mental e emocional pode estar drenando sua energia."
-    return "Sua maior lacuna está no **Espírito**. Muitas pessoas desenvolvem Corpo e Mente, mas deixam o Espírito de lado, o que gera uma sensação de vazio."
+    if (maior <= 1.5) return "Seu Triângulo MCE revela um excelente equilíbrio entre Mente, Corpo e Espírito. Você já possui uma base sólida."
+    if (diffC === maior) return "Sua maior lacuna está no **Corpo**."
+    if (diffM === maior) return "Sua maior lacuna está na **Mente**."
+    return "Sua maior lacuna está no **Espírito**."
   }
 
-  const TriangleVisualization = ({ data }: { data: ResultData }) => {
-    const size = 350
-    const center = size / 2
-    const radius = 140 
-    
-    // Vértices do Triângulo da Harmonia (Base Fixa)
-    // Mente no Topo, Corpo na Esquerda, Espírito na Direita
-    const vM = { x: center, y: center - radius }
-    const vC = { x: center - radius * Math.cos(Math.PI/6), y: center + radius * Math.sin(Math.PI/6) }
-    const vE = { x: center + radius * Math.cos(Math.PI/6), y: center + radius * Math.sin(Math.PI/6) }
-    const vCenter = { x: center, y: center } // Ponto central de convergência
-
-    const calculatePlotPoint = (vBase1: {x:number, y:number}, vBase2: {x:number, y:number}, vTarget: {x:number, y:number}, level: number, choice1: number, choice2: number) => {
-      const baseMid = { x: (vBase1.x + vBase2.x) / 2, y: (vBase1.y + vBase2.y) / 2 }
-      const t = level / 10
-      const pointOnAxis = {
-        x: baseMid.x + (vTarget.x - baseMid.x) * t,
-        y: baseMid.y + (vTarget.y - baseMid.y) * t
-      }
-      const baseWidthVector = { x: vBase2.x - vBase1.x, y: vBase2.y - vBase1.y }
-      const currentWidthFactor = (1 - t) 
-      const diff = (choice1 - choice2) / 10 
-      return {
-        x: pointOnAxis.x + baseWidthVector.x * diff * 0.5 * currentWidthFactor,
-        y: pointOnAxis.y + baseWidthVector.y * diff * 0.5 * currentWidthFactor
-      }
-    }
-
-    const pM = calculatePlotPoint(vC, vE, vM, data.idealM, data.pairedCE.espirito, data.pairedCE.corpo)
-    const pC = calculatePlotPoint(vE, vM, vC, data.idealC, data.pairedME.mente, data.pairedME.espirito)
-    const pE = calculatePlotPoint(vM, vC, vE, data.idealE, data.pairedCM.corpo, data.pairedCM.mente)
-
-    return (
-      <div className="flex flex-col items-center justify-center bg-white/50 backdrop-blur-sm p-4 rounded-3xl border border-white/50 shadow-inner">
-        <svg width={size} height={size} viewBox={`0 0 ${size} ${size}`} className="drop-shadow-2xl">
-          {/* Áreas Coloridas de Fundo (Triângulo da Harmonia) */}
-          {/* Área Mente (Topo - Azul) */}
-          <polygon points={`${vM.x},${vM.y} ${vCenter.x},${vCenter.y} ${vC.x},${vC.y} ${vM.x},${vM.y}`} fill="#3b82f6" fillOpacity="0.08" />
-          <polygon points={`${vM.x},${vM.y} ${vCenter.x},${vCenter.y} ${vE.x},${vE.y} ${vM.x},${vM.y}`} fill="#3b82f6" fillOpacity="0.08" />
-          
-          {/* Área Corpo (Base - Verde) */}
-          <polygon points={`${vC.x},${vC.y} ${vCenter.x},${vCenter.y} ${vE.x},${vE.y} ${vC.x},${vC.y}`} fill="#10b981" fillOpacity="0.08" />
-
-          {/* Área Espírito (Lados - Amarelo/Âmbar) */}
-          {/* Nota: No esboço o amarelo está entre Mente e Corpo, mas seguindo a lógica de 3 áreas convergentes: */}
-          <polygon points={`${vE.x},${vE.y} ${vCenter.x},${vCenter.y} ${vM.x},${vM.y}`} fill="#f59e0b" fillOpacity="0.08" />
-          <polygon points={`${vC.x},${vC.y} ${vCenter.x},${vCenter.y} ${vM.x},${vM.y}`} fill="#f59e0b" fillOpacity="0.08" />
-
-          {/* Linhas Divisórias do Centro para os Vértices (Conforme Esboço) */}
-          <line x1={vCenter.x} y1={vCenter.y} x2={vM.x} y2={vM.y} stroke="#cbd5e1" strokeWidth="1" strokeDasharray="4" />
-          <line x1={vCenter.x} y1={vCenter.y} x2={vC.x} y2={vC.y} stroke="#cbd5e1" strokeWidth="1" strokeDasharray="4" />
-          <line x1={vCenter.x} y1={vCenter.y} x2={vE.x} y2={vE.y} stroke="#cbd5e1" strokeWidth="1" strokeDasharray="4" />
-
-          {/* Triângulo da Harmonia (Borda Externa) */}
-          <polygon 
-            points={`${vM.x},${vM.y} ${vC.x},${vC.y} ${vE.x},${vE.y}`}
-            fill="none"
-            stroke="#94a3b8"
-            strokeWidth="2"
-          />
-          
-          {/* Triângulo Pessoal (Preenchido com Gradiente) */}
-          <motion.polygon 
-            initial={{ opacity: 0, scale: 0.8 }}
-            animate={{ opacity: 1, scale: 1 }}
-            transition={{ duration: 1.2, ease: "easeOut" }}
-            points={`${pM.x},${pM.y} ${pC.x},${pC.y} ${pE.x},${pE.y}`}
-            fill="url(#gradMCE)"
-            stroke="#059669"
-            strokeWidth="3"
-            strokeLinejoin="round"
-          />
-
-          {/* Pontos de Plotagem (Vértices do Triângulo Pessoal) */}
-          <circle cx={pM.x} cy={pM.y} r="5" fill="#3b82f6" className="drop-shadow-md" />
-          <circle cx={pC.x} cy={pC.y} r="5" fill="#10b981" className="drop-shadow-md" />
-          <circle cx={pE.x} cy={pE.y} r="5" fill="#f59e0b" className="drop-shadow-md" />
-
-          {/* Rótulos das Áreas (Posicionados conforme esboço) */}
-          <text x={vM.x} y={vM.y - 20} textAnchor="middle" className="text-[14px] font-black fill-blue-600 uppercase tracking-tighter">Mente</text>
-          <text x={vC.x - 10} y={vC.y + 25} textAnchor="middle" className="text-[14px] font-black fill-emerald-600 uppercase tracking-tighter">Corpo</text>
-          <text x={vE.x + 10} y={vE.y + 25} textAnchor="middle" className="text-[14px] font-black fill-amber-600 uppercase tracking-tighter">Espírito</text>
-
-          {/* Cores indicativas dentro das áreas (Labels conforme esboço) */}
-          <text x={vCenter.x + 35} y={vCenter.y - 30} textAnchor="middle" className="text-[9px] font-bold fill-blue-400/60 uppercase">Azul</text>
-          <text x={vCenter.x} y={vCenter.y + 50} textAnchor="middle" className="text-[9px] font-bold fill-emerald-400/60 uppercase">Verde</text>
-          <text x={vCenter.x - 45} y={vCenter.y - 30} textAnchor="middle" className="text-[9px] font-bold fill-amber-400/60 uppercase">Amarelo</text>
-
-          <defs>
-            <linearGradient id="gradMCE" x1="0%" y1="0%" x2="100%" y2="100%">
-              <stop offset="0%" style={{ stopColor: '#3b82f6', stopOpacity: 0.7 }} />
-              <stop offset="50%" style={{ stopColor: '#10b981', stopOpacity: 0.7 }} />
-              <stop offset="100%" style={{ stopColor: '#f59e0b', stopOpacity: 0.7 }} />
-            </linearGradient>
-          </defs>
-        </svg>
-        <div className="mt-4 text-[11px] text-slate-500 font-bold uppercase tracking-[0.2em]">
-          Ecossistema Inovarse • Triângulo MCE
-        </div>
-      </div>
-    )
-  }
-
-  // ==================== TELA DE INTRODUÇÃO ENRIQUECIDA ====================
   if (showIntro) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-zinc-100 to-emerald-50 flex items-center justify-center p-6">
-        <div className="max-w-2xl bg-white rounded-3xl shadow-2xl p-12 text-center">
-          
-          {/* Logo menor e redonda */}
-          <div className="mb-10 flex justify-center">
-            <div className="w-20 h-20 bg-white rounded-full shadow-lg flex items-center justify-center border border-emerald-100 overflow-hidden">
-              <img 
-                src="/logo_inovarse.jpeg" 
-                alt="Inovarse Logo" 
-                className="w-16 h-16 object-contain"
-              />
+      <div className="min-h-screen relative overflow-hidden">
+        <div className="absolute inset-0 bg-cover bg-center" style={{ backgroundImage: `url(${HERO_BG})` }} />
+        <div className="absolute inset-0 bg-gradient-to-b from-white/70 via-white/60 to-white/80" />
+        <div className="relative flex items-center justify-center min-h-screen p-4 md:p-8">
+          <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="max-w-2xl w-full text-center">
+            <motion.div initial={{ scale: 0.8 }} animate={{ scale: 1 }} className="mb-10 flex justify-center">
+              <div className="w-64 h-64 bg-white rounded-full shadow-2xl flex items-center justify-center border-4 border-emerald-100 overflow-hidden">
+                <img src="/logo_inovarse.jpeg" alt="Inovarse" className="w-56 h-56 object-contain" />
+              </div>
+            </motion.div>
+            <p className="text-3xl font-medium text-emerald-700 mb-10">Estética Integrativa</p>
+            <h1 className="text-5xl md:text-6xl font-bold text-emerald-900 mb-8 leading-tight" style={{ fontFamily: "'Playfair Display', serif" }}>
+              A verdadeira beleza nasce de dentro para fora
+            </h1>
+            <div className="space-y-6 text-lg text-slate-700 max-w-md mx-auto mb-12">
+              <p>Vivemos em um mundo onde a estética muitas vezes se resume a procedimentos pontuais e resultados temporários.</p>
+              <p>No <span className="font-semibold text-emerald-700">INOVARSE</span>, acreditamos em algo diferente: uma abordagem completa que cuida de você como um todo — <span className="font-semibold text-emerald-700">Mente, Corpo e Espírito</span>.</p>
+              <p>Não queremos apenas melhorar sua aparência. Queremos ajudar você a viver com mais energia, clareza mental, equilíbrio emocional e uma beleza natural que se mantém ao longo do tempo.</p>
+              <p className="font-medium text-emerald-800 italic">Este é o começo de uma jornada de cuidado constante e personalizado.</p>
+              <p className="font-medium text-emerald-700">Faça o Teste Triângulo MCE agora e descubra seu perfil atual de equilíbrio. A partir dele, construiremos juntos o seu Programa Personalizado Inovarse.</p>
             </div>
-          </div>
-
-          <h1 className="text-5xl font-bold text-emerald-700 mb-3">Inovarse</h1>
-          <p className="text-emerald-600 text-xl mb-8">Estética Integrativa</p>
-
-          <h2 className="text-3xl font-semibold mb-6 leading-tight">
-            A verdadeira beleza nasce de dentro para fora
-          </h2>
-
-          <div className="prose prose-zinc max-w-md mx-auto text-left space-y-6 mb-12">
-            <p className="text-lg">
-              Vivemos em um mundo onde a estética muitas vezes se resume a procedimentos pontuais e resultados temporários.
-            </p>
-            <p>
-              No <strong>Inovarse</strong>, acreditamos em algo diferente: uma abordagem completa que cuida de você como um todo — 
-              <strong>Mente, Corpo e Espírito</strong>.
-            </p>
-            <p>
-              Não queremos apenas melhorar sua aparência. Queremos ajudar você a viver com mais energia, clareza mental, 
-              equilíbrio emocional e uma beleza natural que se mantém ao longo do tempo.
-            </p>
-            <p className="font-medium text-emerald-700">
-              Este é o começo de uma jornada de cuidado constante e personalizado.
-            </p>
-          </div>
-
-          <div className="bg-emerald-50 border border-emerald-100 rounded-2xl p-6 mb-10">
-            <p className="text-emerald-800">
-              Faça o <strong>Teste Triângulo MCE</strong> agora e descubra seu perfil atual de equilíbrio.<br />
-              A partir dele, construiremos juntos o seu <strong>Programa Personalizado Inovarse</strong>.
-            </p>
-          </div>
-
-          <button 
-            onClick={() => setShowIntro(false)}
-            className="w-full py-7 bg-emerald-600 hover:bg-emerald-700 text-white text-2xl font-bold rounded-3xl shadow-lg transition-all active:scale-[0.98]"
-          >
-            Iniciar o Teste Triângulo MCE
-          </button>
-
-          <p className="text-sm text-zinc-500 mt-8">
-            Gratuito • Confidencial • Leva apenas 5 minutos
-          </p>
+            <div className="bg-white/90 backdrop-blur-md rounded-3xl p-8 mb-8 border border-white">
+              <p className="text-emerald-800 font-medium mb-6">Para personalizarmos seu contato, preencha abaixo:</p>
+              <div className="space-y-5">
+                <input type="text" placeholder="Nome completo" value={lead.nome} onChange={e => setLead({ ...lead, nome: e.target.value })} className="w-full px-5 py-4 border border-slate-300 rounded-2xl focus:outline-none focus:border-emerald-500" />
+                <input type="tel" placeholder="Telefone (WhatsApp)" value={lead.telefone} onChange={e => setLead({ ...lead, telefone: e.target.value })} className="w-full px-5 py-4 border border-slate-300 rounded-2xl focus:outline-none focus:border-emerald-500" />
+                <input type="email" placeholder="E-mail" value={lead.email} onChange={e => setLead({ ...lead, email: e.target.value })} className="w-full px-5 py-4 border border-slate-300 rounded-2xl focus:outline-none focus:border-emerald-500" />
+              </div>
+            </div>
+            <motion.button
+              whileHover={{ scale: 1.02 }}
+              whileTap={{ scale: 0.98 }}
+              onClick={irParaSliders}
+              className="w-full py-7 bg-gradient-to-r from-emerald-600 to-emerald-700 hover:from-emerald-700 hover:to-emerald-800 text-white text-2xl font-bold rounded-3xl shadow-xl transition-all"
+            >
+              Iniciar o Teste Triângulo MCE
+            </motion.button>
+            <p className="text-sm text-slate-600 mt-8">Gratuito • Confidencial • Leva apenas 5 minutos</p>
+          </motion.div>
         </div>
       </div>
     )
   }
 
+  if (showSliders && !result) {
+    return (
+      <div className="min-h-screen relative overflow-hidden py-12">
+        <div className="max-w-4xl mx-auto">
+          <motion.div className="bg-white/95 backdrop-blur-md rounded-3xl shadow-2xl p-8 md:p-12 border border-white/50">
+            <motion.div className="text-center mb-12">
+              <h1 className="text-5xl md:text-6xl font-bold text-emerald-900 mb-3" style={{ fontFamily: "'Playfair Display', serif" }}>Triângulo MCE</h1>
+              <p className="text-emerald-700 text-lg">Equilíbrio Integral • Inovarse</p>
+            </motion.div>
+            <motion.section className="mb-16">
+              <h2 className="text-3xl font-bold text-center mb-10 text-slate-800" style={{ fontFamily: "'Playfair Display', serif" }}>1. Sua Distribuição Ideal</h2>
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
+                <motion.div whileHover={{ scale: 1.02 }} className="bg-gradient-to-br from-blue-50 to-blue-100/50 rounded-2xl p-8 border-2 border-blue-200 shadow-lg">
+                  <label className="block mb-4 font-semibold text-blue-900 text-lg">Mente</label>
+                  <input type="range" min={0} max={10} step={0.5} value={mente} onChange={e => setMente(Number(e.target.value))} className="w-full h-3 bg-blue-200 rounded-lg appearance-none cursor-pointer accent-blue-600" />
+                  <div className="text-center font-bold text-5xl mt-6 text-blue-600">{mente}</div>
+                </motion.div>
+                <motion.div whileHover={{ scale: 1.02 }} className="bg-gradient-to-br from-emerald-50 to-emerald-100/50 rounded-2xl p-8 border-2 border-emerald-200 shadow-lg">
+                  <label className="block mb-4 font-semibold text-emerald-900 text-lg">Corpo</label>
+                  <p className="text-sm text-emerald-700 mb-2">restante: {restante.toFixed(1)}</p>
+                  <input type="range" min={0} max={restante} step={0.5} value={corpo} onChange={e => setCorpo(Number(e.target.value))} className="w-full h-3 bg-emerald-200 rounded-lg appearance-none cursor-pointer accent-emerald-600" />
+                  <div className="text-center font-bold text-5xl mt-6 text-emerald-600">{corpo}</div>
+                </motion.div>
+                <motion.div whileHover={{ scale: 1.02 }} className="bg-gradient-to-br from-purple-50 to-purple-100/50 rounded-2xl p-8 border-2 border-purple-200 shadow-lg">
+                  <label className="block mb-4 font-semibold text-purple-900 text-lg">Espírito</label>
+                  <div className="h-3 bg-purple-200 rounded-full overflow-hidden mt-4">
+                    <motion.div initial={{ width: 0 }} animate={{ width: `${(espirito / 10) * 100}%` }} className="h-full bg-gradient-to-r from-purple-500 to-purple-600" />
+                  </div>
+                  <div className="text-center font-bold text-5xl text-purple-600 mt-6">{espirito.toFixed(1)}</div>
+                </motion.div>
+              </div>
+            </motion.section>
+            <motion.section className="mb-16">
+              <h2 className="text-3xl font-bold text-center mb-10 text-slate-800" style={{ fontFamily: "'Playfair Display', serif" }}>2. Preferências Relativas</h2>
+              <div className="space-y-12">
+                <div className="bg-white p-8 rounded-3xl border border-slate-200">
+                  <div className="flex justify-between text-lg font-semibold mb-4">
+                    <span className="text-blue-600">Mente</span>
+                    <span className="text-emerald-600">Corpo</span>
+                  </div>
+                  <input type="range" min={0} max={10} step={0.5} value={pairedCM.mente} onChange={e => setPairedCM({ mente: Number(e.target.value), corpo: 10 - Number(e.target.value) })} className="w-full h-3 bg-gradient-to-r from-blue-200 via-slate-200 to-emerald-200 rounded-lg appearance-none cursor-pointer" />
+                  <div className="flex justify-between text-lg font-semibold mt-4">
+                    <span className="text-blue-600">{pairedCM.mente.toFixed(1)}</span>
+                    <span className="text-emerald-600">{pairedCM.corpo.toFixed(1)}</span>
+                  </div>
+                </div>
+
+                <div className="bg-white p-8 rounded-3xl border border-slate-200">
+                  <div className="flex justify-between text-lg font-semibold mb-4">
+                    <span className="text-emerald-600">Corpo</span>
+                    <span className="text-purple-600">Espírito</span>
+                  </div>
+                  <input type="range" min={0} max={10} step={0.5} value={pairedCE.corpo} onChange={e => setPairedCE({ corpo: Number(e.target.value), espirito: 10 - Number(e.target.value) })} className="w-full h-3 bg-gradient-to-r from-emerald-200 via-slate-200 to-purple-200 rounded-lg appearance-none cursor-pointer" />
+                  <div className="flex justify-between text-lg font-semibold mt-4">
+                    <span className="text-emerald-600">{pairedCE.corpo.toFixed(1)}</span>
+                    <span className="text-purple-600">{pairedCE.espirito.toFixed(1)}</span>
+                  </div>
+                </div>
+
+                <div className="bg-white p-8 rounded-3xl border border-slate-200">
+                  <div className="flex justify-between text-lg font-semibold mb-4">
+                    <span className="text-blue-600">Mente</span>
+                    <span className="text-purple-600">Espírito</span>
+                  </div>
+                  <input type="range" min={0} max={10} step={0.5} value={pairedME.mente} onChange={e => setPairedME({ mente: Number(e.target.value), espirito: 10 - Number(e.target.value) })} className="w-full h-3 bg-gradient-to-r from-blue-200 via-slate-200 to-purple-200 rounded-lg appearance-none cursor-pointer" />
+                  <div className="flex justify-between text-lg font-semibold mt-4">
+                    <span className="text-blue-600">{pairedME.mente.toFixed(1)}</span>
+                    <span className="text-purple-600">{pairedME.espirito.toFixed(1)}</span>
+                  </div>
+                </div>
+              </div>
+            </motion.section>
+            <motion.button
+              whileHover={{ scale: 1.02 }}
+              whileTap={{ scale: 0.98 }}
+              onClick={calcular}
+              disabled={loading}
+              className="w-full py-6 bg-gradient-to-r from-emerald-600 to-emerald-700 hover:from-emerald-700 hover:to-emerald-800 text-white text-2xl font-bold rounded-3xl shadow-xl transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              {loading ? 'Calculando...' : 'Ver Meu Triângulo MCE'}
+            </motion.button>
+          </motion.div>
+        </div>
+      </div>
+    )
+  }
 
   if (result) {
     const whatsappMessage = encodeURIComponent(
@@ -285,186 +340,115 @@ function App( ) {
       `• Espírito: ${result.altE} (ideal ${result.idealE})\n\n` +
       `Gostaria de agendar uma avaliação para entender melhor meu perfil e montar meu Programa Personalizado Inovarse.`
     )
-
     return (
       <div className="min-h-screen relative overflow-hidden">
         <div className="absolute inset-0 bg-cover bg-center" style={{ backgroundImage: `url(${RESULT_BG})` }} />
         <div className="absolute inset-0 bg-gradient-to-b from-white/60 via-white/50 to-white/70" />
-        
         <div className="relative flex items-center justify-center min-h-screen p-4 md:p-8">
-          <motion.div 
-            initial={{ opacity: 0, y: 20 }} 
-            animate={{ opacity: 1, y: 0 }}
-            className="max-w-5xl w-full bg-white/95 backdrop-blur-md rounded-3xl shadow-2xl p-8 md:p-12 border border-white/50"
-          >
-            <div className="flex justify-between items-start mb-10">
-              <div>
-                <h1 className="text-4xl font-bold text-emerald-900" style={{ fontFamily: "'Playfair Display', serif" }}>Seu Triângulo MCE</h1>
-                <p className="text-emerald-700 font-medium mt-2">Estética Integrativa • Inovarse</p>
+          <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="max-w-5xl w-full">
+            <div className="bg-white/95 backdrop-blur-md rounded-3xl shadow-2xl p-8 md:p-12 border border-white/50">
+              <div className="flex justify-between items-start mb-10">
+                <div>
+                  <h1 className="text-4xl md:text-5xl font-bold text-emerald-900" style={{ fontFamily: "'Playfair Display', serif" }}>Seu Triângulo MCE</h1>
+                  <p className="text-emerald-700 text-lg mt-2">Estética Integrativa • Inovarse</p>
+                </div>
+                <button onClick={reset} className="text-sm font-medium text-emerald-700 hover:text-emerald-900 underline">Fazer novo teste</button>
               </div>
-              <button onClick={reset} className="text-sm font-medium text-emerald-700 hover:text-emerald-900 underline">Fazer novo teste</button>
-            </div>
-
-            <div className="grid lg:grid-cols-2 gap-12 items-center mb-12">
-              <TriangleVisualization data={result} />
-              
-              <div className="space-y-6">
-                <div className="bg-blue-50 p-6 rounded-2xl border border-blue-100">
-                  <p className="text-blue-900 font-bold text-sm uppercase tracking-wider mb-2">Mente</p>
-                  <p className="text-4xl font-black text-blue-600">{result.altM}</p>
-                  <p className="text-xs text-blue-400 mt-1">Seu ideal: {result.idealM}</p>
-                </div>
-                <div className="bg-emerald-50 p-6 rounded-2xl border border-emerald-100">
-                  <p className="text-emerald-900 font-bold text-sm uppercase tracking-wider mb-2">Corpo</p>
-                  <p className="text-4xl font-black text-emerald-600">{result.altC}</p>
-                  <p className="text-xs text-emerald-400 mt-1">Seu ideal: {result.idealC}</p>
-                </div>
-                <div className="bg-amber-50 p-6 rounded-2xl border border-amber-100">
-                  <p className="text-amber-900 font-bold text-sm uppercase tracking-wider mb-2">Espírito</p>
-                  <p className="text-4xl font-black text-amber-600">{result.altE}</p>
-                  <p className="text-xs text-amber-400 mt-1">Seu ideal: {result.idealE}</p>
-                </div>
+              <motion.div initial={{ opacity: 0, scale: 0.9 }} animate={{ opacity: 1, scale: 1 }} className="flex justify-center mb-12">
+                <TriangleVisualization data={result} />
+              </motion.div>
+              <div className="grid grid-cols-3 gap-6 mb-10">
+                {[
+                  { label: 'Mente', value: result.altM, ideal: result.idealM, color: 'from-blue-500 to-blue-600', icon: '🧠' },
+                  { label: 'Corpo', value: result.altC, ideal: result.idealC, color: 'from-emerald-500 to-emerald-600', icon: '💪' },
+                  { label: 'Espírito', value: result.altE, ideal: result.idealE, color: 'from-purple-500 to-purple-600', icon: '✨' }
+                ].map(item => (
+                  <div key={item.label} className={`bg-gradient-to-br ${item.color} rounded-2xl p-6 text-white shadow-lg`}>
+                    <div className="text-3xl mb-2">{item.icon}</div>
+                    <p className="text-sm font-medium opacity-90">{item.label}</p>
+                    <p className="text-4xl font-bold mt-2">{item.value}</p>
+                    <p className="text-xs opacity-75 mt-1">ideal: {item.ideal}</p>
+                  </div>
+                ))}
               </div>
+              <div className="bg-gradient-to-r from-emerald-50 to-emerald-100/50 border-2 border-emerald-200 p-8 rounded-3xl mb-10">
+                <p className="text-emerald-900 text-lg leading-relaxed">{getInterpretation(result)}</p>
+              </div>
+              <div className="bg-white border border-emerald-200 rounded-3xl p-8 text-center">
+                <a href={`https://wa.me/351914845439?text=${whatsappMessage}`} target="_blank" className="inline-flex items-center justify-center gap-3 bg-green-600 hover:bg-green-700 text-white font-semibold px-10 py-4 rounded-2xl transition-all text-lg">
+                  📱 Falar no WhatsApp
+                </a>
+              </div>
+              <button onClick={reset} className="w-full mt-6 py-4 bg-gray-100 hover:bg-gray-200 text-slate-700 font-medium rounded-2xl transition-all">Fazer Novo Teste</button>
             </div>
-
-            <div className="bg-slate-50 p-8 rounded-2xl border border-slate-200 mb-10">
-              <h3 className="text-xl font-bold text-slate-800 mb-4">O que isso significa?</h3>
-              <p className="text-slate-700 leading-relaxed text-lg">{getInterpretation(result)}</p>
-            </div>
-
-            <a 
-              href={`https://wa.me/351914845439?text=${whatsappMessage}`}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="block w-full text-center bg-emerald-600 hover:bg-emerald-700 text-white py-6 rounded-2xl text-xl font-bold transition-all shadow-xl"
-            >
-              Agendar minha Avaliação Personalizada
-            </a>
           </motion.div>
         </div>
       </div>
-     )
+    )
   }
 
+  return null
+}
+
+// ==================== TRIÂNGULO - APENAS LABEL "MENTE" AJUSTADO ====================
+const TriangleVisualization = ({ data }: { data: ResultData }) => {
+  const size = 370
+  const centerX = size / 2
+  const centerY = size / 2 + 10
+  const radius = 152
+
+  // Vértices do Triângulo da Harmonia (TH) Principal (Equilátero)
+  const L: Point = { x: centerX - radius * Math.sqrt(3) / 2, y: centerY + radius / 2 }; // Inferior Esquerdo
+  const R: Point = { x: centerX + radius * Math.sqrt(3) / 2, y: centerY + radius / 2 }; // Inferior Direito
+  const T: Point = { x: centerX, y: centerY - radius };                               // Topo Superior
+  
+  // O Centro (Baricentro) do TH
+  const Center: Point = { x: centerX, y: centerY };
+
+  // Plotagem dos 3 vértices do Triângulo MCE (Mente, Corpo, Espírito)
+  const pM = calculateIsoscelesPoint(data.idealM, data.pairedCM.corpo, data.pairedME.espirito, L, R, Center);
+  const pC = calculateIsoscelesPoint(data.idealC, data.pairedCM.mente, data.pairedCE.espirito, L, T, Center);
+  const pE = calculateIsoscelesPoint(data.idealE, data.pairedME.mente, data.pairedCE.corpo, R, T, Center);
+
   return (
-    <div className="min-h-screen bg-slate-50 py-12 px-4">
-      <div className="max-w-3xl mx-auto space-y-12">
+    <div className="flex flex-col items-center justify-center bg-white/90 backdrop-blur-md p-8 rounded-3xl border border-white/70 shadow-2xl">
+      <svg width={size} height={size + 80} viewBox={`0 0 ${size} ${size + 80}`} className="drop-shadow-2xl">
         
-        {/* Etapa 1: Distribuição Ideal */}
-        <section className="bg-white p-8 rounded-3xl shadow-xl border border-slate-100">
-          <div className="mb-8">
-            <h2 className="text-2xl font-bold text-slate-800 mb-2">1. Sua Distribuição Ideal</h2>
-            <p className="text-slate-600 leading-relaxed">
-              Aqui você distribuirá sua preferência pessoal entre as 3 áreas. 
-              <strong> Supondo que tivesse 10 horas para elas, quanto destinaria a cada uma?</strong> 
-              Mova os sliders para fazer sua distribuição ideal pessoal.
-            </p>
-          </div>
-          
-          <div className="space-y-8">
-            <div className="space-y-4">
-              <div className="flex justify-between font-medium text-slate-700">
-                <span>Mente</span>
-                <span className="bg-blue-100 text-blue-700 px-3 py-1 rounded-full">{mente}h</span>
-              </div>
-              <input 
-                type="range" min="0" max="10" step="1" value={mente}
-                onChange={(e) => setMente(parseInt(e.target.value))}
-                className="w-full h-3 bg-slate-200 rounded-lg appearance-none cursor-pointer accent-blue-600"
-              />
-            </div>
+        {/* Áreas */}
+        <polygon points={`${T.x},${T.y} ${L.x},${L.y} ${Center.x},${Center.y}`} fill="#a855f7" fillOpacity="0.33" />
+        <polygon points={`${T.x},${T.y} ${R.x},${R.y} ${Center.x},${Center.y}`} fill="#10b981" fillOpacity="0.33" />
+        <polygon points={`${L.x},${L.y} ${R.x},${R.y} ${Center.x},${Center.y}`} fill="#3b82f6" fillOpacity="0.33" />
 
-            <div className="space-y-4">
-              <div className="flex justify-between font-medium text-slate-700">
-                <span>Corpo</span>
-                <span className="bg-emerald-100 text-emerald-700 px-3 py-1 rounded-full">{corpo}h</span>
-              </div>
-              <input 
-                type="range" min="0" max={restante} step="1" value={corpo}
-                onChange={(e) => setCorpo(parseInt(e.target.value))}
-                className="w-full h-3 bg-slate-200 rounded-lg appearance-none cursor-pointer accent-emerald-600"
-              />
-            </div>
+        {/* Linhas tracejadas internas */}
+        <line x1={Center.x} y1={Center.y} x2={T.x} y2={T.y} stroke="#e2e8f0" strokeWidth="1.5" strokeDasharray="3,3" />
+        <line x1={Center.x} y1={Center.y} x2={L.x} y2={L.y} stroke="#e2e8f0" strokeWidth="1.5" strokeDasharray="3,3" />
+        <line x1={Center.x} y1={Center.y} x2={R.x} y2={R.y} stroke="#e2e8f0" strokeWidth="1.5" strokeDasharray="3,3" />
 
-            <div className="space-y-4">
-              <div className="flex justify-between font-medium text-slate-700">
-                <span>Espírito</span>
-                <span className="bg-amber-100 text-amber-700 px-3 py-1 rounded-full">{espirito}h</span>
-              </div>
-              <div className="w-full h-3 bg-slate-200 rounded-lg relative overflow-hidden">
-                <div className="h-full bg-amber-500 transition-all" style={{ width: `${espirito * 10}%` }} />
-              </div>
-            </div>
-          </div>
-        </section>
+        {/* Triângulo Pessoal */}
+        <motion.polygon
+          initial={{ opacity: 0, scale: 0.88 }}
+          animate={{ opacity: 1, scale: 1 }}
+          transition={{ duration: 1.4, ease: "easeOut" }}
+          points={`${pM.x},${pM.y} ${pC.x},${pC.y} ${pE.x},${pE.y}`}
+          fill="none"
+          stroke="#0f766e"
+          strokeWidth="3.5"
+          strokeLinejoin="round"
+        />
 
-        {/* Etapa 2: Preferências Relativas */}
-        <section className="bg-white p-8 rounded-3xl shadow-xl border border-slate-100">
-          <div className="mb-8">
-            <h2 className="text-2xl font-bold text-slate-800 mb-2">2. Preferências Relativas</h2>
-            <p className="text-slate-600 leading-relaxed">
-              Aqui você definirá entre apenas duas áreas correlacionadas qual a proporção que destinaria a cada uma. 
-              Assim poderemos entender também a <strong>correlação isolada</strong> entre apenas duas áreas.
-            </p>
-          </div>
+        {/* Pontos */}
+        <circle cx={pM.x} cy={pM.y} r="6" fill="#3b82f6" stroke="#fff" strokeWidth="2" />
+        <circle cx={pC.x} cy={pC.y} r="6" fill="#10b981" stroke="#fff" strokeWidth="2" />
+        <circle cx={pE.x} cy={pE.y} r="6" fill="#a855f7" stroke="#fff" strokeWidth="2" />
 
-          <div className="space-y-12">
-            <div className="space-y-6">
-              <div className="flex justify-between text-sm font-bold uppercase tracking-wider text-slate-400">
-                <span>Mente ({pairedCM.mente})</span>
-                <span>Corpo ({pairedCM.corpo})</span>
-              </div>
-              <input 
-                type="range" min="0" max="10" step="1" value={pairedCM.corpo}
-                onChange={(e) => {
-                  const c = parseInt(e.target.value)
-                  setPairedCM({ mente: 10 - c, corpo: c })
-                }}
-                className="w-full h-3 bg-gradient-to-r from-blue-500 to-emerald-500 rounded-lg appearance-none cursor-pointer"
-              />
-            </div>
+        {/* Rótulos */}
+        <text x={centerX} y={centerY + radius * 0.5 + 24} textAnchor="middle" className="text-[15px] font-bold fill-[#1e40af] tracking-wider">MENTE</text>
+        <text x={L.x - 25} y={L.y - 50} textAnchor="middle" transform={`rotate(-60 ${L.x - 25} ${L.y - 50})`} className="text-[15px] font-bold fill-[#166534] tracking-wider">CORPO</text>
+        <text x={R.x + 25} y={R.y - 50} textAnchor="middle" transform={`rotate(60 ${R.x + 25} ${R.y - 50})`} className="text-[15px] font-bold fill-[#6b21a8] tracking-wider">ESPÍRITO</text>
+      </svg>
 
-            <div className="space-y-6">
-              <div className="flex justify-between text-sm font-bold uppercase tracking-wider text-slate-400">
-                <span>Corpo ({pairedCE.corpo})</span>
-                <span>Espírito ({pairedCE.espirito})</span>
-              </div>
-              <input 
-                type="range" min="0" max="10" step="1" value={pairedCE.espirito}
-                onChange={(e) => {
-                  const s = parseInt(e.target.value)
-                  setPairedCE({ corpo: 10 - s, espirito: s })
-                }}
-                className="w-full h-3 bg-gradient-to-r from-emerald-500 to-amber-500 rounded-lg appearance-none cursor-pointer"
-              />
-            </div>
-
-            <div className="space-y-6">
-              <div className="flex justify-between text-sm font-bold uppercase tracking-wider text-slate-400">
-                <span>Mente ({pairedME.mente})</span>
-                <span>Espírito ({pairedME.espirito})</span>
-              </div>
-              <input 
-                type="range" min="0" max="10" step="1" value={pairedME.espirito}
-                onChange={(e) => {
-                  const s = parseInt(e.target.value)
-                  setPairedME({ mente: 10 - s, espirito: s })
-                }}
-                className="w-full h-3 bg-gradient-to-r from-blue-500 to-amber-500 rounded-lg appearance-none cursor-pointer"
-              />
-            </div>
-          </div>
-        </section>
-
-        <div className="text-center pt-8">
-          <button 
-            onClick={calcular}
-            disabled={loading}
-            className="bg-slate-900 hover:bg-black text-white px-12 py-5 rounded-2xl text-xl font-bold transition-all disabled:opacity-50 shadow-2xl"
-          >
-            {loading ? 'Processando...' : 'Ver Meu Resultado'}
-          </button>
-        </div>
+      <div className="mt-6 text-xs text-slate-500 font-medium tracking-widest">
+        TRIÂNGULO DA HARMONIA • MENTE • CORPO • ESPÍRITO
       </div>
     </div>
   )
