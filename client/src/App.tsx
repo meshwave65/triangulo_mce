@@ -450,8 +450,8 @@ const TriangleVisualization = ({ data }: { data: ResultData }) => {
         <circle cx={pC.x} cy={pC.y} r="6" fill="#10b981" stroke="#fff" strokeWidth="2" />
         <circle cx={pE.x} cy={pE.y} r="6" fill="#a855f7" stroke="#fff" strokeWidth="2" />
         <text x={centerX} y={centerY + radius * 0.5 + 24} textAnchor="middle" className="text-[15px] font-bold fill-[#1e40af] tracking-wider">MENTE</text>
-        <text x={L.x - 25} y={L.y - 50} textAnchor="middle" transform={`rotate(-60 ${L.x - 25} ${L.y - 50})`} className="text-[15px] font-bold fill-[#166534] tracking-wider">CORPO</text>
-        <text x={R.x + 25} y={R.y - 50} textAnchor="middle" transform={`rotate(60 ${R.x + 25} ${R.y - 50})`} className="text-[15px] font-bold fill-[#6b21a8] tracking-wider">ESPÍRITO</text>
+        <text x={L.x - 25} y={L.y - 75} textAnchor="middle" transform={`rotate(-60 ${L.x - 25} ${L.y - 155})`} className="text-[15px] font-bold fill-[#166534] tracking-wider">CORPO</text>
+        <text x={R.x + 25} y={R.y - 70} textAnchor="middle" transform={`rotate(60 ${R.x + 25} ${R.y - 155})`} className="text-[15px] font-bold fill-[#6b21a8] tracking-wider">ESPÍRITO</text>
       </svg>
       <div className="mt-6 text-xs text-slate-500 font-medium tracking-widest">
         TRIÂNGULO DA HARMONIA • MENTE • CORPO • ESPÍRITO
