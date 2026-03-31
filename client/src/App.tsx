@@ -108,8 +108,9 @@ function App() {
     }
 
     try {
-      // 1. Salvar Lead na tabela 'leads' (PLURAL)
-      await supabase
+      // ✅ CORREÇÃO DEFINITIVA: Tabela 'leads' (PLURAL) em todo o código
+      // 1. Salvar Lead na tabela 'leads'
+      const { error: leadError } = await supabase
         .from('leads')
         .insert([{
           nome: lead.nome.trim() || 'Visitante',
@@ -117,8 +118,12 @@ function App() {
           email: lead.email.trim() || 'no@email.com'
         }])
       
-      // 2. Salvar Resultado na tabela 'results' (PLURAL)
-      await supabase
+      if (leadError) {
+        console.error('Erro ao salvar na tabela leads:', leadError.message)
+      }
+
+      // 2. Salvar Resultado na tabela 'results'
+      const { error: resultError } = await supabase
         .from('results')
         .insert([{
           mental: parseFloat(altM),
@@ -130,8 +135,12 @@ function App() {
           created_at: new Date().toISOString()
         }])
 
+      if (resultError) {
+        console.error('Erro ao salvar na tabela results:', resultError.message)
+      }
+
     } catch (err) {
-      console.error('Erro inesperado:', err)
+      console.error('Erro inesperado no salvamento:', err)
     } finally {
       setResult(res)
       localStorage.setItem('trianguloMCE_result', JSON.stringify(res))
@@ -169,7 +178,7 @@ function App() {
     }
 
     // 2. Foco na Mente (Sobrecarga Mental)
-    if (diffM === maiorDiff && m < res.idealM) {
+    if (diffM === maiorDiff) {
       return (
         <div className="space-y-4">
           <p className="font-bold text-blue-800 text-xl">Perfil: Mente Sobrecarregada</p>
@@ -180,7 +189,7 @@ function App() {
     }
 
     // 3. Foco no Corpo (Desconexão Física)
-    if (diffC === maiorDiff && c < res.idealC) {
+    if (diffC === maiorDiff) {
       return (
         <div className="space-y-4">
           <p className="font-bold text-emerald-800 text-xl">Perfil: Desconexão Corporal</p>
@@ -191,7 +200,7 @@ function App() {
     }
 
     // 4. Foco no Espírito (Busca por Propósito)
-    if (diffE === maiorDiff && e < res.idealE) {
+    if (diffE === maiorDiff) {
       return (
         <div className="space-y-4">
           <p className="font-bold text-purple-800 text-xl">Perfil: Busca por Essência</p>
@@ -201,7 +210,7 @@ function App() {
       )
     }
 
-    // 5. Desequilíbrio Generalizado (Necessidade de Resgate)
+    // 5. Caso padrão (Segurança)
     return (
       <div className="space-y-4">
         <p className="font-bold text-slate-800 text-xl">Perfil: Transição e Resgate</p>
