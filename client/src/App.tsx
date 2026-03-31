@@ -115,73 +115,62 @@ function App( ) {
     const radius = 140 
     
     // Vértices do Triângulo da Harmonia (Base Fixa)
+    // Mente no Topo, Corpo na Esquerda, Espírito na Direita
     const vM = { x: center, y: center - radius }
     const vC = { x: center - radius * Math.cos(Math.PI/6), y: center + radius * Math.sin(Math.PI/6) }
     const vE = { x: center + radius * Math.cos(Math.PI/6), y: center + radius * Math.sin(Math.PI/6) }
-    const vCenter = { x: center, y: center }
+    const vCenter = { x: center, y: center } // Ponto central de convergência
 
-    // Lógica Invertida:
-    // - t=0: Está no LADO (base da área)
-    // - t=1: Está no CENTRO (vértice da área)
-    const plotPointInSector = (vB1: {x:number, y:number}, vB2: {x:number, y:number}, level: number, choiceLeft: number, choiceRight: number) => {
-      // level: 0 a 10. Se for 10, t=1 (vai para o centro). Se for 0, t=0 (fica na base/lado).
-      const t = Math.max(0, Math.min(1, level / 10))
-      
-      // Pontos nas bordas laterais da fatia colorida na altura 't'
-      // Eles partem da base (lado do triângulo externo) e convergem para o centro
-      const pointOnEdgeLeft = { 
-        x: vB1.x + (vCenter.x - vB1.x) * t, 
-        y: vB1.y + (vCenter.y - vB1.y) * t 
+    const calculatePlotPoint = (vBase1: {x:number, y:number}, vBase2: {x:number, y:number}, vTarget: {x:number, y:number}, level: number, choice1: number, choice2: number) => {
+      const baseMid = { x: (vBase1.x + vBase2.x) / 2, y: (vBase1.y + vBase2.y) / 2 }
+      const t = level / 10
+      const pointOnAxis = {
+        x: baseMid.x + (vTarget.x - baseMid.x) * t,
+        y: baseMid.y + (vTarget.y - baseMid.y) * t
       }
-      const pointOnEdgeRight = { 
-        x: vB2.x + (vCenter.x - vB2.x) * t, 
-        y: vB2.y + (vCenter.y - vB2.y) * t 
-      }
-      
-      // Desvio lateral baseado na diferença entre as escolhas
-      const diff = (choiceRight - choiceLeft) / 10
-      const interpolationFactor = 0.5 + (diff * 0.5)
-      
+      const baseWidthVector = { x: vBase2.x - vBase1.x, y: vBase2.y - vBase1.y }
+      const currentWidthFactor = (1 - t) 
+      const diff = (choice1 - choice2) / 10 
       return {
-        x: pointOnEdgeLeft.x + (pointOnEdgeRight.x - pointOnEdgeLeft.x) * interpolationFactor,
-        y: pointOnEdgeLeft.y + (pointOnEdgeRight.y - pointOnEdgeLeft.y) * interpolationFactor
+        x: pointOnAxis.x + baseWidthVector.x * diff * 0.5 * currentWidthFactor,
+        y: pointOnAxis.y + baseWidthVector.y * diff * 0.5 * currentWidthFactor
       }
     }
 
-    // Mente: Base é o lado entre Corpo (vC) e Espírito (vE)
-    const pM = plotPointInSector(vC, vE, data.idealM, data.pairedCE.corpo, data.pairedCE.espirito)
-    
-    // Corpo: Base é o lado entre Mente (vM) e Espírito (vE)
-    const pC = plotPointInSector(vM, vE, data.idealC, data.pairedME.mente, data.pairedME.espirito)
-    
-    // Espírito: Base é o lado entre Mente (vM) e Corpo (vC)
-    const pE = plotPointInSector(vM, vC, data.idealE, data.pairedCM.mente, data.pairedCM.corpo)
-
-    // Centros dos lados para os Rótulos (Labels)
-    const labelM = { x: (vC.x + vE.x) / 2, y: (vC.y + vE.y) / 2 + 25 }
-    const labelC = { x: (vM.x + vC.x) / 2 - 40, y: (vM.y + vC.y) / 2 - 10 }
-    const labelE = { x: (vM.x + vE.x) / 2 + 40, y: (vM.y + vE.y) / 2 - 10 }
+    const pM = calculatePlotPoint(vC, vE, vM, data.idealM, data.pairedCE.espirito, data.pairedCE.corpo)
+    const pC = calculatePlotPoint(vE, vM, vC, data.idealC, data.pairedME.mente, data.pairedME.espirito)
+    const pE = calculatePlotPoint(vM, vC, vE, data.idealE, data.pairedCM.corpo, data.pairedCM.mente)
 
     return (
       <div className="flex flex-col items-center justify-center bg-white/50 backdrop-blur-sm p-4 rounded-3xl border border-white/50 shadow-inner">
         <svg width={size} height={size} viewBox={`0 0 ${size} ${size}`} className="drop-shadow-2xl">
           {/* Áreas Coloridas de Fundo (Triângulo da Harmonia) */}
-          {/* Mente (Base inferior, vértice no centro) */}
-          <polygon points={`${vC.x},${vC.y} ${vE.x},${vE.y} ${vCenter.x},${vCenter.y}`} fill="#3b82f6" fillOpacity="0.08" />
-          {/* Corpo (Base lateral esquerda, vértice no centro) */}
-          <polygon points={`${vM.x},${vM.y} ${vC.x},${vC.y} ${vCenter.x},${vCenter.y}`} fill="#10b981" fillOpacity="0.08" />
-          {/* Espírito (Base lateral direita, vértice no centro) */}
-          <polygon points={`${vM.x},${vM.y} ${vE.x},${vE.y} ${vCenter.x},${vCenter.y}`} fill="#f59e0b" fillOpacity="0.08" />
+          {/* Área Mente (Topo - Azul) */}
+          <polygon points={`${vM.x},${vM.y} ${vCenter.x},${vCenter.y} ${vC.x},${vC.y} ${vM.x},${vM.y}`} fill="#3b82f6" fillOpacity="0.08" />
+          <polygon points={`${vM.x},${vM.y} ${vCenter.x},${vCenter.y} ${vE.x},${vE.y} ${vM.x},${vM.y}`} fill="#3b82f6" fillOpacity="0.08" />
+          
+          {/* Área Corpo (Base - Verde) */}
+          <polygon points={`${vC.x},${vC.y} ${vCenter.x},${vCenter.y} ${vE.x},${vE.y} ${vC.x},${vC.y}`} fill="#10b981" fillOpacity="0.08" />
 
-          {/* Linhas Divisórias Tracejadas (Lados internos) */}
+          {/* Área Espírito (Lados - Amarelo/Âmbar) */}
+          {/* Nota: No esboço o amarelo está entre Mente e Corpo, mas seguindo a lógica de 3 áreas convergentes: */}
+          <polygon points={`${vE.x},${vE.y} ${vCenter.x},${vCenter.y} ${vM.x},${vM.y}`} fill="#f59e0b" fillOpacity="0.08" />
+          <polygon points={`${vC.x},${vC.y} ${vCenter.x},${vCenter.y} ${vM.x},${vM.y}`} fill="#f59e0b" fillOpacity="0.08" />
+
+          {/* Linhas Divisórias do Centro para os Vértices (Conforme Esboço) */}
           <line x1={vCenter.x} y1={vCenter.y} x2={vM.x} y2={vM.y} stroke="#cbd5e1" strokeWidth="1" strokeDasharray="4" />
           <line x1={vCenter.x} y1={vCenter.y} x2={vC.x} y2={vC.y} stroke="#cbd5e1" strokeWidth="1" strokeDasharray="4" />
           <line x1={vCenter.x} y1={vCenter.y} x2={vE.x} y2={vE.y} stroke="#cbd5e1" strokeWidth="1" strokeDasharray="4" />
 
           {/* Triângulo da Harmonia (Borda Externa) */}
-          <polygon points={`${vM.x},${vM.y} ${vC.x},${vC.y} ${vE.x},${vE.y}`} fill="none" stroke="#94a3b8" strokeWidth="2" />
+          <polygon 
+            points={`${vM.x},${vM.y} ${vC.x},${vC.y} ${vE.x},${vE.y}`}
+            fill="none"
+            stroke="#94a3b8"
+            strokeWidth="2"
+          />
           
-          {/* Triângulo Pessoal (Preenchido) */}
+          {/* Triângulo Pessoal (Preenchido com Gradiente) */}
           <motion.polygon 
             initial={{ opacity: 0, scale: 0.8 }}
             animate={{ opacity: 1, scale: 1 }}
@@ -193,15 +182,20 @@ function App( ) {
             strokeLinejoin="round"
           />
 
-          {/* Pontos de Plotagem */}
+          {/* Pontos de Plotagem (Vértices do Triângulo Pessoal) */}
           <circle cx={pM.x} cy={pM.y} r="5" fill="#3b82f6" className="drop-shadow-md" />
           <circle cx={pC.x} cy={pC.y} r="5" fill="#10b981" className="drop-shadow-md" />
           <circle cx={pE.x} cy={pE.y} r="5" fill="#f59e0b" className="drop-shadow-md" />
 
-          {/* Rótulos das Áreas (Alinhados aos lados do Triângulo Externo) */}
-          <text x={labelM.x} y={labelM.y} textAnchor="middle" className="text-[14px] font-black fill-blue-600 uppercase tracking-tighter">Mente</text>
-          <text x={labelC.x} y={labelC.y} textAnchor="middle" transform={`rotate(-60, ${labelC.x}, ${labelC.y})`} className="text-[14px] font-black fill-emerald-600 uppercase tracking-tighter">Corpo</text>
-          <text x={labelE.x} y={labelE.y} textAnchor="middle" transform={`rotate(60, ${labelE.x}, ${labelE.y})`} className="text-[14px] font-black fill-amber-600 uppercase tracking-tighter">Espírito</text>
+          {/* Rótulos das Áreas (Posicionados conforme esboço) */}
+          <text x={vM.x} y={vM.y - 20} textAnchor="middle" className="text-[14px] font-black fill-blue-600 uppercase tracking-tighter">Mente</text>
+          <text x={vC.x - 10} y={vC.y + 25} textAnchor="middle" className="text-[14px] font-black fill-emerald-600 uppercase tracking-tighter">Corpo</text>
+          <text x={vE.x + 10} y={vE.y + 25} textAnchor="middle" className="text-[14px] font-black fill-amber-600 uppercase tracking-tighter">Espírito</text>
+
+          {/* Cores indicativas dentro das áreas (Labels conforme esboço) */}
+          <text x={vCenter.x + 35} y={vCenter.y - 30} textAnchor="middle" className="text-[9px] font-bold fill-blue-400/60 uppercase">Azul</text>
+          <text x={vCenter.x} y={vCenter.y + 50} textAnchor="middle" className="text-[9px] font-bold fill-emerald-400/60 uppercase">Verde</text>
+          <text x={vCenter.x - 45} y={vCenter.y - 30} textAnchor="middle" className="text-[9px] font-bold fill-amber-400/60 uppercase">Amarelo</text>
 
           <defs>
             <linearGradient id="gradMCE" x1="0%" y1="0%" x2="100%" y2="100%">
@@ -218,58 +212,69 @@ function App( ) {
     )
   }
 
+  // ==================== TELA DE INTRODUÇÃO ENRIQUECIDA ====================
   if (showIntro) {
     return (
-      <div className="min-h-screen relative overflow-hidden">
-        <div className="absolute inset-0 bg-cover bg-center" style={{ backgroundImage: `url(${HERO_BG})` }} />
-        <div className="absolute inset-0 bg-gradient-to-b from-white/70 via-white/60 to-white/80" />
-        
-        <div className="relative flex items-center justify-center min-h-screen p-4 md:p-8">
-          <motion.div 
-            initial={{ opacity: 0, y: 20 }} 
-            animate={{ opacity: 1, y: 0 }} 
-            transition={{ duration: 0.8 }}
-            className="max-w-4xl w-full"
-          >
-            <motion.div 
-              initial={{ scale: 0.8, opacity: 0 }} 
-              animate={{ scale: 1, opacity: 1 }} 
-              transition={{ duration: 1 }}
-              className="w-64 h-64 bg-white rounded-full shadow-2xl flex items-center justify-center border-4 border-white/50 mx-auto mb-10 overflow-hidden"
-            >
-              <img src="/logo_inovarse.jpeg" alt="Inovarse" className="w-56 h-56 object-contain" />
-            </motion.div>
-
-            <div className="bg-white/40 backdrop-blur-md p-8 md:p-12 rounded-[3rem] shadow-2xl border border-white/50 text-center">
-              <h1 className="text-4xl md:text-6xl font-bold text-emerald-900 mb-8" style={{ fontFamily: "'Playfair Display', serif" }}>
-                Ecossistema Inovarse
-              </h1>
-              
-              <div className="space-y-6 text-lg md:text-xl text-slate-700 max-w-3xl mx-auto mb-10 leading-relaxed">
-                <p>No <span className="font-semibold text-emerald-700">Inovarse</span>, acreditamos em algo diferente.</p>
-                <p>Mesmo quando desenvolvemos as três áreas de forma espontânea, sem uma visão holística integrada, o resultado é frágil.</p>
-                
-                <div className="bg-emerald-50/80 p-6 rounded-2xl border border-emerald-100 text-emerald-900 text-left mt-8">
-                  <p className="font-medium mb-2">O objetivo deste teste:</p>
-                  <p className="text-base md:text-lg leading-relaxed">
-                    O teste para definição do <strong>Triângulo MCE (Mente, Corpo e Espírito)</strong> serve para podermos elaborar um programa que seja personalizado e de acordo com suas inclinações e preferências pessoais, e não um programa genérico que busque o equilíbrio perfeito entre as 3 áreas sem levar em consideração suas preferências.
-                  </p>
-                </div>
-              </div>
-
-              <button 
-                onClick={() => setShowIntro(false)}
-                className="w-full md:w-auto px-12 py-5 bg-gradient-to-r from-emerald-600 to-emerald-700 hover:from-emerald-700 hover:to-emerald-800 text-white rounded-2xl text-xl font-bold transition-all transform hover:scale-105 shadow-xl"
-              >
-                Iniciar o Teste Triângulo MCE
-              </button>
-              <p className="text-sm text-slate-500 mt-6">Gratuito • Confidencial • Leva apenas 5 minutos</p>
+      <div className="min-h-screen bg-gradient-to-br from-zinc-100 to-emerald-50 flex items-center justify-center p-6">
+        <div className="max-w-2xl bg-white rounded-3xl shadow-2xl p-12 text-center">
+          
+          {/* Logo menor e redonda */}
+          <div className="mb-10 flex justify-center">
+            <div className="w-20 h-20 bg-white rounded-full shadow-lg flex items-center justify-center border border-emerald-100 overflow-hidden">
+              <img 
+                src="/logo_inovarse.jpeg" 
+                alt="Inovarse Logo" 
+                className="w-16 h-16 object-contain"
+              />
             </div>
-          </motion.div>
+          </div>
+
+          <h1 className="text-5xl font-bold text-emerald-700 mb-3">Inovarse</h1>
+          <p className="text-emerald-600 text-xl mb-8">Estética Integrativa</p>
+
+          <h2 className="text-3xl font-semibold mb-6 leading-tight">
+            A verdadeira beleza nasce de dentro para fora
+          </h2>
+
+          <div className="prose prose-zinc max-w-md mx-auto text-left space-y-6 mb-12">
+            <p className="text-lg">
+              Vivemos em um mundo onde a estética muitas vezes se resume a procedimentos pontuais e resultados temporários.
+            </p>
+            <p>
+              No <strong>Inovarse</strong>, acreditamos em algo diferente: uma abordagem completa que cuida de você como um todo — 
+              <strong>Mente, Corpo e Espírito</strong>.
+            </p>
+            <p>
+              Não queremos apenas melhorar sua aparência. Queremos ajudar você a viver com mais energia, clareza mental, 
+              equilíbrio emocional e uma beleza natural que se mantém ao longo do tempo.
+            </p>
+            <p className="font-medium text-emerald-700">
+              Este é o começo de uma jornada de cuidado constante e personalizado.
+            </p>
+          </div>
+
+          <div className="bg-emerald-50 border border-emerald-100 rounded-2xl p-6 mb-10">
+            <p className="text-emerald-800">
+              Faça o <strong>Teste Triângulo MCE</strong> agora e descubra seu perfil atual de equilíbrio.<br />
+              A partir dele, construiremos juntos o seu <strong>Programa Personalizado Inovarse</strong>.
+            </p>
+          </div>
+
+          <button 
+            onClick={() => setShowIntro(false)}
+            className="w-full py-7 bg-emerald-600 hover:bg-emerald-700 text-white text-2xl font-bold rounded-3xl shadow-lg transition-all active:scale-[0.98]"
+          >
+            Iniciar o Teste Triângulo MCE
+          </button>
+
+          <p className="text-sm text-zinc-500 mt-8">
+            Gratuito • Confidencial • Leva apenas 5 minutos
+          </p>
         </div>
       </div>
     )
   }
+
 
   if (result) {
     const whatsappMessage = encodeURIComponent(
