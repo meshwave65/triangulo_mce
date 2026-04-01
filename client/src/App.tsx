@@ -66,7 +66,7 @@ const calculateIsoscelesPoint = (
 // ====================================================================================
 
 function App() {
-  const [leads, setLead] = useState<LeadData>({ nome: '', telefone: '', email: '' })
+  const [leads, setLead] = useState<LeadData>({ id: '', nome: '', telefone: '', email: '' })
   const [showIntro, setShowIntro] = useState(true)
   const [showSliders, setShowSliders] = useState(false)
 
@@ -108,9 +108,7 @@ function App() {
     }
 
     try {
-      // ✅ CORREÇÃO: Capturar o ID do lead e vincular ao resultado
-      
-      // 1. Salvar Lead na tabela 'leads' E CAPTURAR O ID RETORNADO
+      // 1. Salvar Lead e pegar o ID
       const { data: leadData, error: leadsError } = await supabase
         .from('leads')
         .insert([{
@@ -118,33 +116,30 @@ function App() {
           telefone: leads.telefone.trim() || '00000000000',
           email: leads.email.trim() || 'no@email.com'
         }])
-        .select() // ← Retorna os dados inseridos, incluindo o ID gerado automaticamente
+        .select()
       
       if (leadsError) {
         console.error('Erro ao salvar na tabela leads:', leadsError.message)
-      } else {
-        // Capturar o ID do lead inserido
-        const leadId = leadData?.[0]?.id
-        
-        if (leadId) {
-          // 2. Salvar Resultado na tabela 'results' COM O lead_id
-          const { error: resultsError } = await supabase
-            .from('results')
-            .insert([{
-              lead_id: leadId, // ← Vínculo correto com o lead
-              mental: parseFloat(altM),
-              corpo: parseFloat(altC),
-              espirito: parseFloat(altE),
-              ideal_mental: mente,
-              ideal_corpo: corpo,
-              ideal_espirito: espirito,
-              created_at: new Date().toISOString()
-            }])
+      }
 
-          if (resultsError) {
-            console.error('Erro ao salvar na tabela results:', resultsError.message)
-          }
-        }
+      const leadId = leadData?.[0]?.id
+
+      // 2. Salvar Resultado com o lead_id
+      const { error: resultsError } = await supabase
+        .from('results')
+        .insert([{
+          lead_id: leadId,
+          mental: parseFloat(altM),
+          corpo: parseFloat(altC),
+          espirito: parseFloat(altE),
+          ideal_mental: mente,
+          ideal_corpo: corpo,
+          ideal_espirito: espirito,
+          created_at: new Date().toISOString()
+        }])
+
+      if (resultsError) {
+        console.error('Erro ao salvar na tabela results:', resultsError.message)
       }
 
     } catch (err) {
@@ -174,6 +169,7 @@ function App() {
     const diffE = Math.abs(e - res.idealE)
     const maiorDiff = Math.max(diffM, diffC, diffE)
 
+    // 1. Equilíbrio de Alta Performance
     if (maiorDiff <= 1.2 && m > 3 && c > 3 && e > 3) {
       return (
         <div className="space-y-4">
@@ -184,6 +180,7 @@ function App() {
       )
     }
 
+    // 2. Foco na Mente (Sobrecarga Mental)
     if (diffM === maiorDiff) {
       return (
         <div className="space-y-4">
@@ -194,6 +191,7 @@ function App() {
       )
     }
 
+    // 3. Foco no Corpo (Desconexão Física)
     if (diffC === maiorDiff) {
       return (
         <div className="space-y-4">
@@ -204,6 +202,7 @@ function App() {
       )
     }
 
+    // 4. Foco no Espírito (Busca por Propósito)
     if (diffE === maiorDiff) {
       return (
         <div className="space-y-4">
@@ -214,6 +213,7 @@ function App() {
       )
     }
 
+    // 5. Caso padrão (Segurança)
     return (
       <div className="space-y-4">
         <p className="font-bold text-slate-800 text-xl">Perfil: Transição e Resgate</p>
