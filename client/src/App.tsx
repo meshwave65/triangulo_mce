@@ -6,6 +6,7 @@ const HERO_BG = 'https://d2xsxph8kpxj0f.cloudfront.net/310419663029287297/oB8kVE
 const RESULT_BG = 'https://d2xsxph8kpxj0f.cloudfront.net/310419663029287297/oB8kVE32CcVmCbr6pyHqsc/inovarse-result-background.webp'
 
 interface LeadData {
+  id: uuid
   nome: string
   telefone: string
   email: string
