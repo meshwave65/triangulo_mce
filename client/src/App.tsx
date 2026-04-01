@@ -108,27 +108,24 @@ function App() {
     }
 
     try {
-      // 1. Salvar Lead e pegar o ID
-      const { data: leadData, error: leadsError } = await supabase
+      // ✅ CORREÇÃO DEFINITIVA: Tabela 'leads' (PLURAL) em todo o código
+      // 1. Salvar Lead na tabela 'leads'
+      const { error: leadsError } = await supabase
         .from('leads')
         .insert([{
           nome: leads.nome.trim() || 'Visitante',
           telefone: leads.telefone.trim() || '00000000000',
           email: leads.email.trim() || 'no@email.com'
         }])
-        .select()
       
       if (leadsError) {
         console.error('Erro ao salvar na tabela leads:', leadsError.message)
       }
 
-      const leadId = leadData?.[0]?.id
-
-      // 2. Salvar Resultado com o lead_id
+      // 2. Salvar Resultado na tabela 'results'
       const { error: resultsError } = await supabase
         .from('results')
         .insert([{
-          lead_id: leadId,
           mental: parseFloat(altM),
           corpo: parseFloat(altC),
           espirito: parseFloat(altE),
@@ -243,7 +240,8 @@ function App() {
               <p>Vivemos em um mundo onde a estética muitas vezes se resume a procedimentos pontuais e resultados temporários.</p>
               <p>No <span className="font-semibold text-emerald-700">INOVARSE</span>, acreditamos em algo diferente: uma abordagem completa que cuida de você como um todo — <span className="font-semibold text-emerald-700">Mente, Corpo e Espírito</span>.</p>
               <p>Não queremos apenas melhorar sua aparência. Queremos ajudar você a viver com mais energia, clareza mental, equilíbrio emocional e uma beleza natural que se mantém ao longo do tempo.</p>
-              <p className="text-emerald-800 font-semibold">Descubra seu Triângulo MCE e entenda qual é o seu caminho para a beleza integral.</p>
+              <p className="font-medium text-emerald-800 italic">Este é o começo de uma jornada de cuidado constante e personalizado.</p>
+              <p className="font-medium text-emerald-700">Faça o Teste Triângulo MCE agora e descubra seu perfil atual de equilíbrio. A partir dele, construiremos juntos o seu Programa Personalizado Inovarse.</p>
             </div>
             <div className="bg-white/90 backdrop-blur-md rounded-3xl p-8 mb-8 border border-white">
               <p className="text-emerald-800 font-medium mb-6">Para personalizarmos seu contato, preencha abaixo:</p>
@@ -463,4 +461,3 @@ const TriangleVisualization = ({ data }: { data: ResultData }) => {
 }
 
 export default App
-
