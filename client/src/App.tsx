@@ -123,7 +123,7 @@ function App() {
       }
 
       // 2. Salvar Resultado na tabela 'results'
-      const { error: resultError } = await supabase
+      const { error: resultsError } = await supabase
         .from('results')
         .insert([{
           mental: parseFloat(altM),
@@ -135,8 +135,8 @@ function App() {
           created_at: new Date().toISOString()
         }])
 
-      if (resultError) {
-        console.error('Erro ao salvar na tabela results:', resultError.message)
+      if (resultsError) {
+        console.error('Erro ao salvar na tabela results:', resultsError.message)
       }
 
     } catch (err) {
