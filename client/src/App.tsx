@@ -66,7 +66,7 @@ const calculateIsoscelesPoint = (
 // ====================================================================================
 
 function App() {
-  const [leads, setLead] = useState<LeadData>({ nome: '', telefone: '', email: '' })
+  const [leads, setLead] = useState<LeadData>({ id: '', nome: '', telefone: '', email: '' })
   const [showIntro, setShowIntro] = useState(true)
   const [showSliders, setShowSliders] = useState(false)
 
@@ -126,6 +126,7 @@ function App() {
       const { error: resultsError } = await supabase
         .from('results')
         .insert([{
+          lead_id: id,
           mental: parseFloat(altM),
           corpo: parseFloat(altC),
           espirito: parseFloat(altE),
