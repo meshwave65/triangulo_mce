@@ -110,7 +110,7 @@ function App() {
     try {
       // ✅ CORREÇÃO DEFINITIVA: Tabela 'leads' (PLURAL) em todo o código
       // 1. Salvar Lead na tabela 'leads'
-      const { error: leadError } = await supabase
+      const { error: leadsError } = await supabase
         .from('leads')
         .insert([{
           nome: leads.nome.trim() || 'Visitante',
