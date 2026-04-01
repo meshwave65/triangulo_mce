@@ -126,7 +126,6 @@ function App() {
       const { error: resultsError } = await supabase
         .from('results')
         .insert([{
-          lead_id: id,
           mental: parseFloat(altM),
           corpo: parseFloat(altC),
           espirito: parseFloat(altE),
