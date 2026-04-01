@@ -6,6 +6,7 @@ const HERO_BG = 'https://d2xsxph8kpxj0f.cloudfront.net/310419663029287297/oB8kVE
 const RESULT_BG = 'https://d2xsxph8kpxj0f.cloudfront.net/310419663029287297/oB8kVE32CcVmCbr6pyHqsc/inovarse-result-background.webp'
 
 interface LeadData {
+  id?: string // Adicionado para suportar o ID retornado pelo banco
   nome: string
   telefone: string
   email: string
@@ -66,7 +67,8 @@ const calculateIsoscelesPoint = (
 // ====================================================================================
 
 function App() {
-  const [leads, setLead] = useState<LeadData>({ id: '', nome: '', telefone: '', email: '' })
+  // ✅ Mantido como 'leads' conforme sua estrutura original
+  const [leads, setLead] = useState<LeadData>({ nome: '', telefone: '', email: '' })
   const [showIntro, setShowIntro] = useState(true)
   const [showSliders, setShowSliders] = useState(false)
 
@@ -117,20 +119,20 @@ function App() {
           telefone: leads.telefone.trim() || '00000000000',
           email: leads.email.trim() || 'no@email.com'
         }])
-        .select() // ← Isso retorna o ID gerado automaticamente
+        .select() // Retorna os dados inseridos para capturar o ID
       
       if (leadsError) {
         console.error('Erro ao salvar na tabela leads:', leadsError.message)
       }
 
-      // Captura o ID retornado
-      const leadId = leadData?.[0]?.id
+      // Captura o ID retornado (leadData é um array, pegamos a primeira posição)
+      const leadId = leadData?.[0]?.id || null
 
       // 2. Salvar Resultado na tabela 'results' com o lead_id capturado
       const { error: resultsError } = await supabase
         .from('results')
         .insert([{
-          lead_id: leadId, // ← Vínculo aqui
+          lead_id: leadId, // Vínculo correto com o lead recém-criado
           mental: parseFloat(altM),
           corpo: parseFloat(altC),
           espirito: parseFloat(altE),
@@ -171,7 +173,6 @@ function App() {
     const diffE = Math.abs(e - res.idealE)
     const maiorDiff = Math.max(diffM, diffC, diffE)
 
-    // 1. Equilíbrio de Alta Performance
     if (maiorDiff <= 1.2 && m > 3 && c > 3 && e > 3) {
       return (
         <div className="space-y-4">
@@ -182,7 +183,6 @@ function App() {
       )
     }
 
-    // 2. Foco na Mente (Sobrecarga Mental)
     if (diffM === maiorDiff) {
       return (
         <div className="space-y-4">
@@ -193,7 +193,6 @@ function App() {
       )
     }
 
-    // 3. Foco no Corpo (Desconexão Física)
     if (diffC === maiorDiff) {
       return (
         <div className="space-y-4">
@@ -204,7 +203,6 @@ function App() {
       )
     }
 
-    // 4. Foco no Espírito (Busca por Propósito)
     if (diffE === maiorDiff) {
       return (
         <div className="space-y-4">
@@ -215,7 +213,6 @@ function App() {
       )
     }
 
-    // 5. Caso padrão (Segurança)
     return (
       <div className="space-y-4">
         <p className="font-bold text-slate-800 text-xl">Perfil: Transição e Resgate</p>
@@ -245,7 +242,8 @@ function App() {
               <p>Vivemos em um mundo onde a estética muitas vezes se resume a procedimentos pontuais e resultados temporários.</p>
               <p>No <span className="font-semibold text-emerald-700">INOVARSE</span>, acreditamos em algo diferente: uma abordagem completa que cuida de você como um todo — <span className="font-semibold text-emerald-700">Mente, Corpo e Espírito</span>.</p>
               <p>Não queremos apenas melhorar sua aparência. Queremos ajudar você a viver com mais energia, clareza mental, equilíbrio emocional e uma beleza natural que se mantém ao longo do tempo.</p>
-              <p className="text-emerald-800 font-semibold">Descubra seu Triângulo MCE e entenda qual é o seu caminho para a beleza integral.</p>
+              <p className="font-medium text-emerald-800 italic">Este é o começo de uma jornada de cuidado constante e personalizado.</p>
+              <p className="font-medium text-emerald-700">Faça o Teste Triângulo MCE agora e descubra seu perfil atual de equilíbrio. A partir dele, construiremos juntos o seu Programa Personalizado Inovarse.</p>
             </div>
             <div className="bg-white/90 backdrop-blur-md rounded-3xl p-8 mb-8 border border-white">
               <p className="text-emerald-800 font-medium mb-6">Para personalizarmos seu contato, preencha abaixo:</p>
@@ -398,9 +396,7 @@ function App() {
                 ))}
               </div>
               <div className="bg-gradient-to-r from-emerald-50 to-emerald-100/50 border-2 border-emerald-200 p-8 rounded-3xl mb-10">
-                <div className="text-emerald-900 text-lg leading-relaxed">
-                  {getInterpretation(result)}
-                </div>
+                <div className="text-emerald-900 text-lg leading-relaxed">{getInterpretation(result)}</div>
               </div>
               <div className="bg-white border border-emerald-200 rounded-3xl p-8 text-center">
                 <a href={`https://wa.me/351914845439?text=${whatsappMessage}`} target="_blank" className="inline-flex items-center justify-center gap-3 bg-green-600 hover:bg-green-700 text-white font-semibold px-10 py-4 rounded-2xl transition-all text-lg">
@@ -418,15 +414,18 @@ function App() {
   return null
 }
 
+// ==================== TRIÂNGULO - APENAS LABEL "MENTE" AJUSTADO ====================
 const TriangleVisualization = ({ data }: { data: ResultData }) => {
   const size = 370
   const centerX = size / 2
   const centerY = size / 2 + 10
   const radius = 152
-  const L: Point = { x: centerX - radius * Math.sqrt(3) / 2, y: centerY + radius / 2 }; 
-  const R: Point = { x: centerX + radius * Math.sqrt(3) / 2, y: centerY + radius / 2 }; 
-  const T: Point = { x: centerX, y: centerY - radius };                               
+
+  const L: Point = { x: centerX - radius * Math.sqrt(3) / 2, y: centerY + radius / 2 };
+  const R: Point = { x: centerX + radius * Math.sqrt(3) / 2, y: centerY + radius / 2 };
+  const T: Point = { x: centerX, y: centerY - radius };
   const Center: Point = { x: centerX, y: centerY };
+
   const pM = calculateIsoscelesPoint(data.idealM, data.pairedCM.corpo, data.pairedME.espirito, L, R, Center);
   const pC = calculateIsoscelesPoint(data.idealC, data.pairedCM.mente, data.pairedCE.espirito, L, T, Center);
   const pE = calculateIsoscelesPoint(data.idealE, data.pairedME.mente, data.pairedCE.corpo, R, T, Center);
@@ -454,8 +453,8 @@ const TriangleVisualization = ({ data }: { data: ResultData }) => {
         <circle cx={pC.x} cy={pC.y} r="6" fill="#10b981" stroke="#fff" strokeWidth="2" />
         <circle cx={pE.x} cy={pE.y} r="6" fill="#a855f7" stroke="#fff" strokeWidth="2" />
         <text x={centerX} y={centerY + radius * 0.5 + 24} textAnchor="middle" className="text-[15px] font-bold fill-[#1e40af] tracking-wider">MENTE</text>
-        <text x={L.x - 25} y={L.y - 75} textAnchor="middle" transform={`rotate(-60 ${L.x - 25} ${L.y - 155})`} className="text-[15px] font-bold fill-[#166534] tracking-wider">CORPO</text>
-        <text x={R.x + 25} y={R.y - 70} textAnchor="middle" transform={`rotate(60 ${R.x + 25} ${R.y - 155})`} className="text-[15px] font-bold fill-[#6b21a8] tracking-wider">ESPÍRITO</text>
+        <text x={L.x - 25} y={L.y - 50} textAnchor="middle" transform={`rotate(-60 ${L.x - 25} ${L.y - 50})`} className="text-[15px] font-bold fill-[#166534] tracking-wider">CORPO</text>
+        <text x={R.x + 25} y={R.y - 50} textAnchor="middle" transform={`rotate(60 ${R.x + 25} ${R.y - 50})`} className="text-[15px] font-bold fill-[#6b21a8] tracking-wider">ESPÍRITO</text>
       </svg>
       <div className="mt-6 text-xs text-slate-500 font-medium tracking-widest">
         TRIÂNGULO DA HARMONIA • MENTE • CORPO • ESPÍRITO
