@@ -66,7 +66,7 @@ const calculateIsoscelesPoint = (
 // ====================================================================================
 
 function App() {
-  const [lead, setLead] = useState<LeadData>({ nome: '', telefone: '', email: '' })
+  const [leads, setLead] = useState<LeadData>({ nome: '', telefone: '', email: '' })
   const [showIntro, setShowIntro] = useState(true)
   const [showSliders, setShowSliders] = useState(false)
 
@@ -113,13 +113,13 @@ function App() {
       const { error: leadError } = await supabase
         .from('leads')
         .insert([{
-          nome: lead.nome.trim() || 'Visitante',
-          telefone: lead.telefone.trim() || '00000000000',
-          email: lead.email.trim() || 'no@email.com'
+          nome: leads.nome.trim() || 'Visitante',
+          telefone: leads.telefone.trim() || '00000000000',
+          email: leads.email.trim() || 'no@email.com'
         }])
       
-      if (leadError) {
-        console.error('Erro ao salvar na tabela leads:', leadError.message)
+      if (leadsError) {
+        console.error('Erro ao salvar na tabela leads:', leadsError.message)
       }
 
       // 2. Salvar Resultado na tabela 'results'
@@ -246,9 +246,9 @@ function App() {
             <div className="bg-white/90 backdrop-blur-md rounded-3xl p-8 mb-8 border border-white">
               <p className="text-emerald-800 font-medium mb-6">Para personalizarmos seu contato, preencha abaixo:</p>
               <div className="space-y-5">
-                <input type="text" placeholder="Nome completo" value={lead.nome} onChange={e => setLead({ ...lead, nome: e.target.value })} className="w-full px-5 py-4 border border-slate-300 rounded-2xl focus:outline-none focus:border-emerald-500" />
-                <input type="tel" placeholder="Telefone (WhatsApp)" value={lead.telefone} onChange={e => setLead({ ...lead, telefone: e.target.value })} className="w-full px-5 py-4 border border-slate-300 rounded-2xl focus:outline-none focus:border-emerald-500" />
-                <input type="email" placeholder="E-mail" value={lead.email} onChange={e => setLead({ ...lead, email: e.target.value })} className="w-full px-5 py-4 border border-slate-300 rounded-2xl focus:outline-none focus:border-emerald-500" />
+                <input type="text" placeholder="Nome completo" value={leads.nome} onChange={e => setLead({ ...leads, nome: e.target.value })} className="w-full px-5 py-4 border border-slate-300 rounded-2xl focus:outline-none focus:border-emerald-500" />
+                <input type="tel" placeholder="Telefone (WhatsApp)" value={leads.telefone} onChange={e => setLead({ ...leads, telefone: e.target.value })} className="w-full px-5 py-4 border border-slate-300 rounded-2xl focus:outline-none focus:border-emerald-500" />
+                <input type="email" placeholder="E-mail" value={leads.email} onChange={e => setLead({ ...leads, email: e.target.value })} className="w-full px-5 py-4 border border-slate-300 rounded-2xl focus:outline-none focus:border-emerald-500" />
               </div>
             </div>
             <motion.button
